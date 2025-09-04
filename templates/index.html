@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile API</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background: #f8f9fa;
+      color: #333;
+    }
+    h1 { color: #007bff; }
+    
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 500px;
+      box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      width: 100%;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .output {
+      margin-top: 20px;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 5px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>User API Frontend</h1>
+
+  <div class="container">
+    <input type="number" id="userId" placeholder="Enter User ID (e.g. 3)">
+    <input type="text" id="userName" placeholder="Enter New Name">
+    <button onclick="getUser()">GET User</button>
+    <button onclick="patchUser()">PATCH (Update Name Only)</button>
+    <button onclick="deleteUser()">DELETE User</button>
+
+    <div class="output" id="output">Response will appear here...</div>
+  </div>
+
+  <script>
+    const baseUrl = "http://127.0.0.1:8000/api/users/";
+
+    async function getUser() {
+      let id = document.getElementById("userId").value;
+      const res = await fetch(baseUrl + id + "/");
+      const data = await res.json();
+      document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function patchUser() {
+      let id = document.getElementById("userId").value;
+      let name = document.getElementById("userName").value;
+
+      const res = await fetch(baseUrl + id + "/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name })
+      });
+      const data = await res.json();
+      document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function deleteUser() {
+      let id = document.getElementById("userId").value;
+      const res = await fetch(baseUrl + id + "/", { method: "DELETE" });
+      if (res.status === 204) {
+        document.getElementById("output").innerText = "User deleted successfully";
+      } else {
+        const data = await res.json();
+        document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+      }
+    }
+  </script>
+  
+</body>
+</html>

@@ -1,74 +1,54 @@
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 
-from rest_framework.views import APIView
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.settings import api_settings
 
-from .models import UserProfile
-from .serializers import UserProfileSerializer
+from .models import ProfileFeedItem, UserProfile
+from .serializers import ProfileFeedItemSerializer, UserProfileSerializer
+from .permissions import UpdateOwnProfile, UpdateOwnStatus
+from profiles_api import permissions
 
 
 
 def index(request) -> HttpResponse:
     return render(request, "index.html")
 
-
-@method_decorator(csrf_exempt, name='dispatch')
-class UserProfilesView(APIView):
-    """ Handle GET and POST for multiple users"""
+class UserProfileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for viewing and editing user profiles.
+    """
     
-    def get(self, request) -> Response:
-        users = UserProfile.objects.all()
-        serializer = UserProfileSerializer(users, many=True)
-        return Response(serializer.data)
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [UpdateOwnProfile]
+    authentication_classes = [TokenAuthentication]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'email']
+    
 
-    def post(self, request) -> Response:
+class UserLoginAPIView(ObtainAuthToken):
+    """ Handles User Authentication token"""
+    
+    renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
+    
+
+class UserProfileFeedViewset(viewsets.ModelViewSet):
+    """ Handles creating, reading and updating feed items """
+    
+    authentication_classes = [TokenAuthentication]
+    serializer_class = ProfileFeedItemSerializer
+    queryset = ProfileFeedItem.objects.all()
+    permission_classes = [UpdateOwnStatus, IsAuthenticated]
+    
+    
+    def perform_create(self, serializer):
+        """ Sets the user profile to the logged in user"""
         
-        many = isinstance(request.data, list)
-        
-        serializer = UserProfileSerializer(data=request.data, many=many)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class UserProfileView(APIView):
-    """Handle GET, PUT, PATCH, DELETE for a single user"""
-
-    def get(self, request, pk) -> Response:
-        """Retrieve a user by ID"""
-        user = get_object_or_404(UserProfile, pk=pk)
-        serializer = UserProfileSerializer(user)
-        return Response(serializer.data)
-
-    def put(self, request, pk) -> Response:
-        """Update all fields of a user"""
-        user = get_object_or_404(UserProfile, pk=pk)
-        serializer = UserProfileSerializer(user, data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request, pk) -> Response:
-        """Partially update user (only the fields you send)"""
-        user = get_object_or_404(UserProfile, pk=pk)
-        serializer = UserProfileSerializer(user, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk) -> Response:
-        """Delete a user"""
-        user = get_object_or_404(UserProfile, pk=pk)
-        user.delete()
-        return Response({"message": "User deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
-
+        serializer.save(user_profile=self.request.user)
+       
+    
